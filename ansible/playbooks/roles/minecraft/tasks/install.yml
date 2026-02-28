@@ -134,15 +134,20 @@
   set_fact:
     bedrock_latest_version: "{{ bedrock_resolved_url | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+') }}"
 
+- name: Check if version file exists
+  stat:
+    path: "{{ minecraft_base_dir }}/current_version"
+  register: version_file_stat
+
 - name: Read currently installed version
   slurp:
     src: "{{ minecraft_base_dir }}/current_version"
   register: installed_version_file
-  ignore_errors: yes
+  when: version_file_stat.stat.exists
 
 - name: Set installed version fact
   set_fact:
-    bedrock_installed_version: "{{ (installed_version_file.content | b64decode | trim) if installed_version_file is succeeded else '0.0.0.0' }}"
+    bedrock_installed_version: "{{ (installed_version_file.content | b64decode | trim) if version_file_stat.stat.exists else '0.0.0.0' }}"
 
 - name: Download Bedrock server zip
   get_url:

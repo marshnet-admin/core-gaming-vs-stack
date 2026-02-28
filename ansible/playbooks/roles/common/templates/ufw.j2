@@ -1,5 +1,5 @@
 # /etc/default/ufw
-IPV6={{ 'yes' if ansible_all_ipv6_addresses | default([]) else 'no' }}
+IPV6={{ 'yes' if ansible_facts['all_ipv6_addresses'] | default([]) else 'no' }}
 
 # Set the default input policy to DENY
 DEFAULT_INPUT_POLICY="DROP"

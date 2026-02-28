@@ -9,7 +9,7 @@
     dest: /etc/resolv.conf
     mode: '0644'
   become: yes
-  when: ansible_dns.nameservers | default([]) | length == 0
+  when: ansible_facts['dns'].nameservers | default([]) | length == 0
 
 - name: Update apt cache and upgrade packages
   apt:

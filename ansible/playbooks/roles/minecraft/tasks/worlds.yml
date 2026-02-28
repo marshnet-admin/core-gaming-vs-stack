@@ -17,7 +17,7 @@
 
 - name: Copy world backup archive to server
   copy:
-    src: "bedrock-backup.gz"
+    src: "{{ inventory_dir }}/files/bedrock-backup.gz"
     dest: "{{ minecraft_base_dir }}/tmp/bedrock-backup.gz"
     owner: "{{ minecraft_user }}"
     group: "{{ minecraft_group }}"

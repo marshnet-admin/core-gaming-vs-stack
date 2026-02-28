@@ -71,11 +71,16 @@ class TerraformInventory:
         groups = set()
 
         # Add to environment group
+        # Rename 'environment' and 'tags' to avoid Ansible reserved variable names
         if 'environment' in host_data:
-            groups.add(self.sanitize_group_name(host_data['environment']))
+            host_data['vm_environment'] = host_data.pop('environment')
+            groups.add(self.sanitize_group_name(host_data['vm_environment']))
+
+        if 'tags' in host_data:
+            host_data['vm_tags'] = host_data.pop('tags')
 
         # Process tags
-        tags = host_data.get('tags', {})
+        tags = host_data.get('vm_tags', {})
         if tags:
             # Application group
             if 'Application' in tags:
