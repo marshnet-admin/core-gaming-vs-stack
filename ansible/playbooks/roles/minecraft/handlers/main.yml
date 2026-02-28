@@ -1,0 +1,12 @@
+# roles/minecraft/handlers/main.yml
+---
+- name: Restart minecraft instances
+  systemd:
+    name: "minecraft@{{ item.name }}"
+    state: restarted
+    daemon_reload: yes
+  loop: "{{ minecraft_servers }}"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes

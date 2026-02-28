@@ -1,0 +1,17 @@
+# roles/minecraft/defaults/main.yml
+---
+minecraft_base_dir: /opt/minecraft
+minecraft_user: minecraft
+minecraft_group: minecraft
+minecraft_backup_dir: "{{ minecraft_base_dir }}/backups"
+minecraft_backup_retain_days: 14
+minecraft_update_check_time: "04:00"
+minecraft_backup_time: "03:00"
+
+minecraft_servers:
+  - name: survival
+    port: 19132
+    level_name: "Survival"
+    gamemode: survival
+    difficulty: normal
+    max_players: 10

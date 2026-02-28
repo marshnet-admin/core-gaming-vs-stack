@@ -1,0 +1,62 @@
+# roles/common/tasks/main.yml
+---
+- name: Ensure DNS is configured
+  copy:
+    content: |
+      {% for server in dns_servers %}
+      nameserver {{ server }}
+      {% endfor %}
+    dest: /etc/resolv.conf
+    mode: '0644'
+  become: yes
+  when: ansible_dns.nameservers | default([]) | length == 0
+
+- name: Update apt cache and upgrade packages
+  apt:
+    update_cache: yes
+    upgrade: yes
+    cache_valid_time: 3600
+  become: yes
+  register: apt_result
+  retries: 5
+  delay: 30
+  until: apt_result is success
+
+- name: Install common packages
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Remove unused packages
+  apt:
+    autoremove: yes
+  become: yes
+  
+- name: Configure SSH
+  template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+  notify: Restart SSH
+
+- name: Configure UFW
+  template:
+    src: ufw.j2
+    dest: /etc/default/ufw
+  notify: Reload UFW
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: deny
+
+- name: Start ufw
+  service:
+    name: ufw
+    state: started
+    enabled: true
+
+- name: Allow SSH through UFW
+  ufw:
+    rule: allow
+    port: "{{ ssh_port | default(22) }}"
+    proto: tcp

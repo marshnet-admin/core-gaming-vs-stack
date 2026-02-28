@@ -1,0 +1,31 @@
+# roles/minecraft/tasks/services.yml
+# Installs the minecraft@ systemd template service and enables one instance per world.
+---
+- name: Deploy systemd minecraft@ template service
+  template:
+    src: minecraft@.service.j2
+    dest: /etc/systemd/system/minecraft@.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Flush handlers to reload systemd before enabling services
+  meta: flush_handlers
+
+- name: Enable and start each Minecraft server instance
+  systemd:
+    name: "minecraft@{{ item.name }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  loop: "{{ minecraft_servers }}"
+
+# UFW rules - open Bedrock port (UDP) for each instance
+- name: Allow Minecraft Bedrock ports through UFW
+  ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: udp
+    comment: "Minecraft Bedrock - {{ item.name }}"
+  loop: "{{ minecraft_servers }}"

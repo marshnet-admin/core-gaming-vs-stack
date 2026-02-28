@@ -1,0 +1,12 @@
+# playbooks/site_gaming.yml
+# Gaming Server - Minecraft Bedrock multi-instance deployment
+---
+- hosts: all
+  become: yes
+  gather_facts: true
+  gather_subset:
+    - min
+    - network
+  roles:
+    - common
+    - minecraft

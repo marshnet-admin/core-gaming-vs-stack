@@ -1,0 +1,144 @@
+# roles/minecraft/tasks/install.yml
+# Downloads the latest Minecraft Bedrock server and installs the shared binary.
+---
+- name: Install Bedrock server dependencies
+  apt:
+    name:
+      - curl
+      - unzip
+      - libcurl4
+      - libssl3
+    state: present
+
+- name: Create minecraft system user
+  user:
+    name: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    system: yes
+    shell: /usr/sbin/nologin
+    home: "{{ minecraft_base_dir }}"
+    create_home: no
+
+- name: Create minecraft group
+  group:
+    name: "{{ minecraft_group }}"
+    system: yes
+
+- name: Create directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0755'
+  loop:
+    - "{{ minecraft_base_dir }}"
+    - "{{ minecraft_base_dir }}/bin"
+    - "{{ minecraft_base_dir }}/scripts"
+    - "{{ minecraft_backup_dir }}"
+    - "{{ minecraft_base_dir }}/tmp"
+
+- name: Create server instance directories
+  file:
+    path: "{{ minecraft_base_dir }}/servers/{{ item.name }}"
+    state: directory
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0755'
+  loop: "{{ minecraft_servers }}"
+
+- name: Fetch latest Bedrock server download URL
+  shell: |
+    curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+      "https://www.minecraft.net/en-us/download/server/bedrock" \
+    | grep -oP 'https://minecraft\.azureedge\.net/bin-linux/bedrock-server-[0-9.]+\.zip' \
+    | head -1
+  register: bedrock_download_url
+  changed_when: false
+  check_mode: no
+
+- name: Fail if download URL not found
+  fail:
+    msg: "Could not determine latest Minecraft Bedrock download URL. Check connectivity."
+  when: bedrock_download_url.stdout | length == 0
+
+- name: Extract version from download URL
+  set_fact:
+    bedrock_latest_version: "{{ bedrock_download_url.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+') }}"
+
+- name: Read currently installed version
+  slurp:
+    src: "{{ minecraft_base_dir }}/current_version"
+  register: installed_version_file
+  ignore_errors: yes
+
+- name: Set installed version fact
+  set_fact:
+    bedrock_installed_version: "{{ (installed_version_file.content | b64decode | trim) if installed_version_file is succeeded else '0.0.0.0' }}"
+
+- name: Download Bedrock server zip
+  get_url:
+    url: "{{ bedrock_download_url.stdout }}"
+    dest: "{{ minecraft_base_dir }}/tmp/bedrock-server.zip"
+    mode: '0644'
+  when: bedrock_latest_version != bedrock_installed_version
+
+- name: Extract Bedrock binary and libraries to shared bin/
+  unarchive:
+    src: "{{ minecraft_base_dir }}/tmp/bedrock-server.zip"
+    dest: "{{ minecraft_base_dir }}/bin"
+    remote_src: yes
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+  when: bedrock_latest_version != bedrock_installed_version
+
+- name: Make bedrock_server binary executable
+  file:
+    path: "{{ minecraft_base_dir }}/bin/bedrock_server"
+    mode: '0755'
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+  when: bedrock_latest_version != bedrock_installed_version
+
+- name: Write installed version file
+  copy:
+    content: "{{ bedrock_latest_version }}"
+    dest: "{{ minecraft_base_dir }}/current_version"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0644'
+  when: bedrock_latest_version != bedrock_installed_version
+
+- name: Clean up downloaded zip
+  file:
+    path: "{{ minecraft_base_dir }}/tmp/bedrock-server.zip"
+    state: absent
+
+- name: Set server.properties for each instance
+  template:
+    src: server.properties.j2
+    dest: "{{ minecraft_base_dir }}/servers/{{ item.name }}/server.properties"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0644'
+  loop: "{{ minecraft_servers }}"
+
+- name: Create default allowlist.json for each instance
+  copy:
+    content: "[]"
+    dest: "{{ minecraft_base_dir }}/servers/{{ item.name }}/allowlist.json"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0644'
+    force: no
+  loop: "{{ minecraft_servers }}"
+
+- name: Create default permissions.json for each instance
+  copy:
+    content: "[]"
+    dest: "{{ minecraft_base_dir }}/servers/{{ item.name }}/permissions.json"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0644'
+    force: no
+  loop: "{{ minecraft_servers }}"

@@ -1,0 +1,47 @@
+# server.properties for Minecraft Bedrock instance: {{ item.name }}
+# Managed by Ansible - local changes will be overwritten on next run.
+
+server-name=Bedrock {{ item.name | capitalize }}
+gamemode={{ item.gamemode }}
+force-gamemode=false
+difficulty={{ item.difficulty }}
+allow-cheats=false
+max-players={{ item.max_players }}
+online-mode=true
+allow-list=false
+
+# Network
+server-port={{ item.port }}
+server-portv6={{ item.port + 1 }}
+
+# World
+level-name={{ item.level_name }}
+level-seed=
+level-type=DEFAULT
+
+# Performance (tune per-world if needed)
+tick-distance=4
+max-threads=2
+view-distance=32
+player-idle-timeout=30
+
+# Security / behaviour
+default-player-permission-level=member
+texturepack-required=false
+content-log-file-enabled=false
+compression-threshold=1
+compression-algorithm=zlib
+server-authoritative-movement=server-auth
+network-compression-enabled=true
+player-movement-score-threshold=20
+player-movement-action-direction-threshold=0.85
+player-movement-distance-threshold=0.3s
+player-movement-duration-threshold-in-ms=500
+correct-player-movement=false
+server-authoritative-block-breaking=false
+chat-restriction=None
+disable-player-interaction=false
+client-side-chunk-generation-enabled=true
+block-network-ids-are-hashes=true
+disable-custom-skins=false
+server-build-radius-ratio=Disabled

@@ -1,0 +1,107 @@
+# roles/minecraft/tasks/maintenance.yml
+# Deploys the backup and auto-update scripts with their systemd timers.
+---
+
+# --- Backup script & timer ---
+
+- name: Deploy backup script
+  template:
+    src: minecraft-backup.sh.j2
+    dest: "{{ minecraft_base_dir }}/scripts/minecraft-backup.sh"
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install minecraft-backup systemd service unit
+  copy:
+    dest: /etc/systemd/system/minecraft-backup.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Minecraft Bedrock - Daily World Backup
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      User=root
+      ExecStart={{ minecraft_base_dir }}/scripts/minecraft-backup.sh daily
+      StandardOutput=journal
+      StandardError=journal
+
+- name: Install minecraft-backup systemd timer
+  copy:
+    dest: /etc/systemd/system/minecraft-backup.timer
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Minecraft Bedrock - Daily Backup Timer
+
+      [Timer]
+      OnCalendar=*-*-* {{ minecraft_backup_time }}:00
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+- name: Enable and start backup timer
+  systemd:
+    name: minecraft-backup.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+# --- Auto-update script & timer ---
+
+- name: Deploy update script
+  template:
+    src: minecraft-update.sh.j2
+    dest: "{{ minecraft_base_dir }}/scripts/minecraft-update.sh"
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install minecraft-update systemd service unit
+  copy:
+    dest: /etc/systemd/system/minecraft-update.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Minecraft Bedrock - Auto-Update Check
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      User=root
+      ExecStart={{ minecraft_base_dir }}/scripts/minecraft-update.sh
+      StandardOutput=journal
+      StandardError=journal
+
+- name: Install minecraft-update systemd timer
+  copy:
+    dest: /etc/systemd/system/minecraft-update.timer
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Minecraft Bedrock - Daily Update Check Timer
+
+      [Timer]
+      OnCalendar=*-*-* {{ minecraft_update_check_time }}:00
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+- name: Enable and start update timer
+  systemd:
+    name: minecraft-update.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes

@@ -1,0 +1,46 @@
+# /etc/systemd/system/minecraft@.service
+# Managed by Ansible
+#
+# Template service for Minecraft Bedrock server instances.
+# Usage:
+#   systemctl start  minecraft@<world-name>
+#   systemctl stop   minecraft@<world-name>
+#   systemctl status minecraft@<world-name>
+#   journalctl -u    minecraft@<world-name> -f
+
+[Unit]
+Description=Minecraft Bedrock Server (%i)
+Documentation=https://www.minecraft.net/en-us/download/server/bedrock
+After=network.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User={{ minecraft_user }}
+Group={{ minecraft_group }}
+
+# Run the binary from the instance directory so it writes worlds/
+# and other files relative to the correct path.
+WorkingDirectory={{ minecraft_base_dir }}/servers/%i
+
+# The Bedrock binary ships its own shared libs - point the linker at them.
+Environment="LD_LIBRARY_PATH={{ minecraft_base_dir }}/bin"
+
+ExecStart={{ minecraft_base_dir }}/bin/bedrock_server
+
+# Restart on crash but not on clean stop
+Restart=on-failure
+RestartSec=15
+
+# Drop stdin so it doesn't block; route stdout/stderr to journald
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=minecraft-%i
+
+# Resource limits (adjust if you observe swapping)
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

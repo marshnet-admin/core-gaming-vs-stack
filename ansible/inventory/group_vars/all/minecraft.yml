@@ -1,0 +1,47 @@
+# Minecraft Bedrock Server Configuration
+# Worlds are restored from ansible/inventory/files/bedrock-backup.gz
+# Archive structure: worlds/<LevelName>/
+
+minecraft_base_dir: /opt/minecraft
+minecraft_user: minecraft
+minecraft_group: minecraft
+
+# Each entry maps to one systemd instance: minecraft@<name>
+# level_name must exactly match the folder name inside worlds/ in the backup archive.
+# Ports: each server needs a unique UDP port (opened in UFW automatically).
+minecraft_servers:
+  - name: marshlands-survival
+    port: 19132
+    level_name: "Marshlands_Survival"
+    gamemode: survival
+    difficulty: normal
+    max_players: 10
+
+  - name: epic-survival
+    port: 19133
+    level_name: "Epic_World_Survival"
+    gamemode: survival
+    difficulty: normal
+    max_players: 10
+
+  - name: marshlands
+    port: 19134
+    level_name: "Marshlands"
+    gamemode: creative
+    difficulty: peaceful
+    max_players: 10
+
+  - name: epic-world
+    port: 19135
+    level_name: "Epic_World"
+    gamemode: creative
+    difficulty: peaceful
+    max_players: 10
+
+# Backup settings
+minecraft_backup_dir: "{{ minecraft_base_dir }}/backups"
+minecraft_backup_retain_days: 14
+
+# Timers (24h format): backup runs before the update check
+minecraft_backup_time: "03:00"
+minecraft_update_check_time: "04:00"

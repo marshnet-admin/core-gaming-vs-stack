@@ -1,0 +1,16 @@
+# /etc/default/ufw
+IPV6={{ 'yes' if ansible_all_ipv6_addresses | default([]) else 'no' }}
+
+# Set the default input policy to DENY
+DEFAULT_INPUT_POLICY="DROP"
+# Set the default output policy to ALLOW
+DEFAULT_OUTPUT_POLICY="ACCEPT"
+# Set the default forward policy to DENY
+DEFAULT_FORWARD_POLICY="DROP"
+
+# Set the default application policy to DENY
+DEFAULT_APPLICATION_POLICY="SKIP"
+
+MANAGE_BUILTINS=no
+IPT_SYSCTL=/etc/ufw/sysctl.conf
+IPT_MODULES="nf_conntrack_ftp nf_nat_ftp nf_conntrack_netbios_ns"

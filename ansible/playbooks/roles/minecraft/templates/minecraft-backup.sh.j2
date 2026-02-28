@@ -1,0 +1,58 @@
+#!/bin/bash
+# minecraft-backup.sh - Backup Minecraft Bedrock worlds and server configs
+# Managed by Ansible - do not edit manually.
+#
+# Usage:
+#   minecraft-backup.sh [label]
+#   label defaults to "daily" — used in the backup folder name.
+#
+# Backups are written to: {{ minecraft_backup_dir }}/<label>-<timestamp>/
+
+set -euo pipefail
+
+MINECRAFT_BASE="{{ minecraft_base_dir }}"
+BACKUP_BASE="{{ minecraft_backup_dir }}"
+RETAIN_DAYS="{{ minecraft_backup_retain_days }}"
+LOG="/var/log/minecraft-backup.log"
+LABEL="${1:-daily}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DEST="${BACKUP_BASE}/${LABEL}-${TIMESTAMP}"
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [BACKUP] $*" | tee -a "${LOG}"; }
+
+log "Starting ${LABEL} backup -> ${DEST}"
+
+mkdir -p "${DEST}"
+
+{% for server in minecraft_servers %}
+# --- {{ server.name }} ---
+SERVER_DIR="${MINECRAFT_BASE}/servers/{{ server.name }}"
+INSTANCE_DEST="${DEST}/{{ server.name }}"
+mkdir -p "${INSTANCE_DEST}"
+
+# Worlds data
+if [ -d "${SERVER_DIR}/worlds" ]; then
+    cp -r "${SERVER_DIR}/worlds" "${INSTANCE_DEST}/"
+    log "  {{ server.name }}: worlds backed up"
+fi
+
+# Config files
+for f in server.properties allowlist.json permissions.json; do
+    [ -f "${SERVER_DIR}/${f}" ] && cp "${SERVER_DIR}/${f}" "${INSTANCE_DEST}/"
+done
+log "  {{ server.name }}: config files backed up"
+{% endfor %}
+
+# Compress the entire backup into a single archive
+ARCHIVE="${BACKUP_BASE}/${LABEL}-${TIMESTAMP}.tar.gz"
+tar -czf "${ARCHIVE}" -C "${BACKUP_BASE}" "${LABEL}-${TIMESTAMP}"
+rm -rf "${DEST}"
+log "Backup archive: ${ARCHIVE}"
+
+# Prune old backups
+log "Pruning backups older than ${RETAIN_DAYS} days..."
+find "${BACKUP_BASE}" -maxdepth 1 -name "${LABEL}-*.tar.gz" \
+    -mtime +${RETAIN_DAYS} -delete
+log "Pruning complete."
+
+log "Backup finished: ${ARCHIVE}"

@@ -1,0 +1,83 @@
+# roles/minecraft/tasks/worlds.yml
+# Extracts worlds from bedrock-backup.gz and distributes them to each server instance.
+# The archive should contain a worlds/ directory at the root, e.g.:
+#   worlds/Survival/
+#   worlds/Creative/
+#   worlds/Adventure/
+#   worlds/Minigames/
+# Each server instance maps to one world via its level_name.
+---
+- name: Create worlds restore staging area
+  file:
+    path: "{{ minecraft_base_dir }}/tmp/world_restore"
+    state: directory
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0755'
+
+- name: Copy world backup archive to server
+  copy:
+    src: "bedrock-backup.gz"
+    dest: "{{ minecraft_base_dir }}/tmp/bedrock-backup.gz"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0644'
+
+- name: Extract world backup archive
+  unarchive:
+    src: "{{ minecraft_base_dir }}/tmp/bedrock-backup.gz"
+    dest: "{{ minecraft_base_dir }}/tmp/world_restore"
+    remote_src: yes
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+
+- name: Create worlds directory for each server instance
+  file:
+    path: "{{ minecraft_base_dir }}/servers/{{ item.name }}/worlds"
+    state: directory
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+    mode: '0755'
+  loop: "{{ minecraft_servers }}"
+
+- name: Check if restored world exists for each instance
+  stat:
+    path: "{{ minecraft_base_dir }}/tmp/world_restore/worlds/{{ item.level_name }}"
+  register: world_stat
+  loop: "{{ minecraft_servers }}"
+
+- name: Copy world to server instance (only if not already present)
+  # Only restores if destination world folder doesn't exist yet,
+  # preserving any live world data on re-runs.
+  shell: |
+    if [ ! -d "{{ minecraft_base_dir }}/servers/{{ item.item.name }}/worlds/{{ item.item.level_name }}" ]; then
+      cp -r "{{ minecraft_base_dir }}/tmp/world_restore/worlds/{{ item.item.level_name }}" \
+            "{{ minecraft_base_dir }}/servers/{{ item.item.name }}/worlds/"
+      chown -R {{ minecraft_user }}:{{ minecraft_group }} \
+            "{{ minecraft_base_dir }}/servers/{{ item.item.name }}/worlds/"
+      echo "restored"
+    else
+      echo "skipped"
+    fi
+  register: world_copy
+  changed_when: "'restored' in world_copy.stdout"
+  loop: "{{ world_stat.results }}"
+  when: item.stat.exists
+
+- name: Warn about missing worlds in backup
+  debug:
+    msg: >
+      WARNING: World '{{ item.item.level_name }}' not found in backup archive.
+      Server '{{ item.item.name }}' will start with a freshly generated world.
+  loop: "{{ world_stat.results }}"
+  when: not item.stat.exists
+
+- name: Clean up restore staging area
+  file:
+    path: "{{ minecraft_base_dir }}/tmp/world_restore"
+    state: absent
+
+- name: Clean up backup archive from tmp
+  file:
+    path: "{{ minecraft_base_dir }}/tmp/bedrock-backup.gz"
+    state: absent

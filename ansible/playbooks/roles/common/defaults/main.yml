@@ -1,0 +1,16 @@
+# roles/common/defaults/main.yml
+---
+common_packages:
+  - curl
+  - git
+  - wget
+  - vim
+  - htop
+  - net-tools
+  - unzip
+  - jq
+  - python3
+  - python3-pip
+  - bzip2
+
+ssh_port: 22

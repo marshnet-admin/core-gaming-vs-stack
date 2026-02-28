@@ -1,0 +1,95 @@
+#!/bin/bash
+# minecraft-update.sh - Auto-update Minecraft Bedrock server
+# Managed by Ansible - do not edit manually.
+#
+# Workflow:
+#   1. Fetch latest version from Minecraft download page
+#   2. Compare against installed version
+#   3. If update available:
+#      a. Run a pre-update backup
+#      b. Stop all server instances
+#      c. Download and extract new binary/libraries to shared bin/
+#      d. Write new version file
+#      e. Restart all server instances
+
+set -euo pipefail
+
+MINECRAFT_BASE="{{ minecraft_base_dir }}"
+BIN_DIR="${MINECRAFT_BASE}/bin"
+VERSION_FILE="${MINECRAFT_BASE}/current_version"
+BACKUP_SCRIPT="${MINECRAFT_BASE}/scripts/minecraft-backup.sh"
+TMP_DIR="${MINECRAFT_BASE}/tmp"
+LOG="/var/log/minecraft-update.log"
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [UPDATE] $*" | tee -a "${LOG}"; }
+
+# ---- Fetch latest version ----
+log "Checking for Minecraft Bedrock updates..."
+
+DOWNLOAD_URL=$(curl -s --max-time 30 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+    "https://www.minecraft.net/en-us/download/server/bedrock" \
+    | grep -oP 'https://minecraft\.azureedge\.net/bin-linux/bedrock-server-[0-9.]+\.zip' \
+    | head -1)
+
+if [ -z "${DOWNLOAD_URL}" ]; then
+    log "ERROR: Could not determine latest download URL. Aborting."
+    exit 1
+fi
+
+LATEST_VERSION=$(echo "${DOWNLOAD_URL}" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
+CURRENT_VERSION=$(cat "${VERSION_FILE}" 2>/dev/null || echo "0.0.0.0")
+
+log "Installed: ${CURRENT_VERSION}  |  Latest: ${LATEST_VERSION}"
+
+if [ "${CURRENT_VERSION}" = "${LATEST_VERSION}" ]; then
+    log "Already up to date. No action required."
+    exit 0
+fi
+
+log "Update available: ${CURRENT_VERSION} -> ${LATEST_VERSION}"
+
+# ---- Pre-update backup ----
+log "Running pre-update backup..."
+"${BACKUP_SCRIPT}" "pre-update-${LATEST_VERSION}"
+log "Pre-update backup complete."
+
+# ---- Stop all instances ----
+log "Stopping all Minecraft server instances..."
+{% for server in minecraft_servers %}
+if systemctl is-active --quiet "minecraft@{{ server.name }}"; then
+    systemctl stop "minecraft@{{ server.name }}"
+    log "  Stopped: minecraft@{{ server.name }}"
+fi
+{% endfor %}
+
+# ---- Download new version ----
+mkdir -p "${TMP_DIR}"
+ZIP="${TMP_DIR}/bedrock-server-${LATEST_VERSION}.zip"
+log "Downloading ${DOWNLOAD_URL}..."
+curl -L --max-time 300 -o "${ZIP}" "${DOWNLOAD_URL}"
+log "Download complete."
+
+# ---- Extract shared binary + libraries (preserve worlds/ and configs) ----
+# We unzip everything into bin/ which holds the shared binary and runtime libs.
+# Each server instance references the binary from here via LD_LIBRARY_PATH.
+log "Extracting new binary to ${BIN_DIR}..."
+unzip -o "${ZIP}" -d "${BIN_DIR}"
+chmod 755 "${BIN_DIR}/bedrock_server"
+chown -R {{ minecraft_user }}:{{ minecraft_group }} "${BIN_DIR}"
+log "Extraction complete."
+
+# ---- Update version file ----
+echo "${LATEST_VERSION}" > "${VERSION_FILE}"
+
+# ---- Restart all instances ----
+log "Restarting all Minecraft server instances..."
+{% for server in minecraft_servers %}
+systemctl start "minecraft@{{ server.name }}"
+log "  Started: minecraft@{{ server.name }}"
+{% endfor %}
+
+# ---- Cleanup ----
+rm -f "${ZIP}"
+
+log "Update to ${LATEST_VERSION} completed successfully."

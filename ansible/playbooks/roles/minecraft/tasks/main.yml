@@ -1,0 +1,13 @@
+# roles/minecraft/tasks/main.yml
+---
+- name: Install Minecraft Bedrock server
+  include_tasks: install.yml
+
+- name: Restore worlds from backup
+  include_tasks: worlds.yml
+
+- name: Configure systemd services
+  include_tasks: services.yml
+
+- name: Configure backup and auto-update
+  include_tasks: maintenance.yml

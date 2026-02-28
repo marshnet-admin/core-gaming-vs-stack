@@ -1,0 +1,30 @@
+# Ignore generated Ansible inventory
+inventory/terraform*.json
+
+# Ignore SSH keys
+# inventory/ssh_keys
+inventory/ssh_keys/*
+
+# Ignore outputs folder contents
+inventory/outputs/*
+inventory/vault-approle*
+inventory/vault-root-cert*
+
+# Ignore pycache
+playbooks/filter_plugins/__pycache__
+playbooks/filter_plugins/__pycache__/*
+
+# Ignore terraform.json
+terraform*.json
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Vault file
+playbooks/group_vars/all/ansible_vault.yml
