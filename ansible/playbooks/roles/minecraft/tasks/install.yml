@@ -211,6 +211,7 @@
     group: "{{ minecraft_group }}"
     mode: '0644'
   loop: "{{ minecraft_servers }}"
+  notify: Restart minecraft instances
 
 - name: Create default allowlist.json for each instance
   copy:
