@@ -26,11 +26,40 @@ log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [UPDATE] $*" | tee -a "${LOG}"; }
 # ---- Fetch latest version ----
 log "Checking for Minecraft Bedrock updates..."
 
-DOWNLOAD_URL=$(curl -s --max-time 30 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-    "https://www.minecraft.net/en-us/download/server/bedrock" \
-    | grep -oP 'https://minecraft\.azureedge\.net/bin-linux/bedrock-server-[0-9.]+\.zip' \
-    | head -1)
+DOWNLOAD_URL=$(python3 - <<'PYEOF'
+import urllib.request, re, json, sys
+
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+URL = "https://www.minecraft.net/en-us/download/server/bedrock"
+PATTERN = re.compile(r'https://[^\s"\'<>]*bin-linux[^\s"\'<>]*bedrock-server-[\d.]+\.zip')
+
+try:
+    req = urllib.request.Request(URL, headers={"User-Agent": UA})
+    html = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", errors="ignore")
+except Exception as e:
+    print(f"ERROR fetching page: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Pass 1: direct regex match anywhere in raw HTML
+m = PATTERN.search(html)
+if m:
+    print(m.group(0))
+    sys.exit(0)
+
+# Pass 2: extract from embedded __NEXT_DATA__ JSON (Next.js pages)
+nd = re.search(r'<script[^>]*id=["\']__NEXT_DATA__["\'][^>]*>(.*?)</script>', html, re.DOTALL)
+if nd:
+    try:
+        m = PATTERN.search(json.dumps(json.loads(nd.group(1))))
+        if m:
+            print(m.group(0))
+            sys.exit(0)
+    except Exception:
+        pass
+
+sys.exit(1)
+PYEOF
+)
 
 if [ -z "${DOWNLOAD_URL}" ]; then
     log "ERROR: Could not determine latest download URL. Aborting."
