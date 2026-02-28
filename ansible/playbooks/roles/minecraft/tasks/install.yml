@@ -10,6 +10,11 @@
       - libssl3
     state: present
 
+- name: Create minecraft group
+  group:
+    name: "{{ minecraft_group }}"
+    system: yes
+
 - name: Create minecraft system user
   user:
     name: "{{ minecraft_user }}"
@@ -18,11 +23,6 @@
     shell: /usr/sbin/nologin
     home: "{{ minecraft_base_dir }}"
     create_home: no
-
-- name: Create minecraft group
-  group:
-    name: "{{ minecraft_group }}"
-    system: yes
 
 - name: Create directory structure
   file:
