@@ -85,8 +85,10 @@ PYEOF
 )
 
 if [ -z "${DOWNLOAD_URL}" ]; then
-    log "ERROR: Could not determine latest download URL. Aborting."
-    exit 1
+    log "WARNING: Could not determine latest download URL from minecraft.net (page may require JS rendering)."
+    log "To unblock updates set 'minecraft_bedrock_download_url' in group_vars/all/minecraft.yml and re-run Ansible."
+    log "Skipping update check - servers are still running."
+    exit 0
 fi
 
 LATEST_VERSION=$(echo "${DOWNLOAD_URL}" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')

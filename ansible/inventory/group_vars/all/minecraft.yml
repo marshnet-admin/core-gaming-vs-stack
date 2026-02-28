@@ -45,3 +45,8 @@ minecraft_backup_retain_days: 14
 # Timers (24h format): backup runs before the update check
 minecraft_backup_time: "03:00"
 minecraft_update_check_time: "04:00"
+
+# Direct download URL override - set this when auto-detection fails.
+# Update to the latest URL from: https://www.minecraft.net/en-us/download/server/bedrock
+# Clear this string ("") to re-enable auto-detection.
+minecraft_bedrock_download_url: "https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-1.26.2.1.zip"

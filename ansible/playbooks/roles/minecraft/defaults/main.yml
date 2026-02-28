@@ -1,5 +1,10 @@
 # roles/minecraft/defaults/main.yml
 ---
+# Set this to the direct download URL when auto-detection fails.
+# Leave empty to attempt auto-detection from minecraft.net.
+# Example: "https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-1.26.2.1.zip"
+minecraft_bedrock_download_url: ""
+
 minecraft_base_dir: /opt/minecraft
 minecraft_user: minecraft
 minecraft_group: minecraft

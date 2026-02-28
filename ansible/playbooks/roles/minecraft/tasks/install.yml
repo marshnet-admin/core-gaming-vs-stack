@@ -47,7 +47,13 @@
     mode: '0755'
   loop: "{{ minecraft_servers }}"
 
-- name: Fetch latest Bedrock server download URL
+# Use manual override if set, otherwise attempt to scrape minecraft.net
+- name: Use manual download URL override
+  set_fact:
+    bedrock_resolved_url: "{{ minecraft_bedrock_download_url }}"
+  when: minecraft_bedrock_download_url | default('') | length > 0
+
+- name: Fetch latest Bedrock server download URL from minecraft.net
   shell: |
     python3 - <<'PYEOF'
     import urllib.request, re, json, sys
@@ -58,9 +64,7 @@
                   "AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/120.0.0.0 Safari/537.36")
 
-    # Match the full URL however the CDN is named
     FULL_RE    = re.compile(r'https?://[^\s"\'<>]*/bin-linux/bedrock-server-[\d.]+\.zip')
-    # Fall back: extract the version string and reconstruct the URL
     VERSION_RE = re.compile(r'bedrock-server-([\d]+\.[\d]+\.[\d]+\.[\d]+)\.zip')
 
     def find_url(text):
@@ -79,17 +83,17 @@
     }
     try:
         req  = urllib.request.Request(PAGE_URL, headers=headers)
-        html = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", errors="ignore")
+        resp = urllib.request.urlopen(req, timeout=30)
+        html = resp.read().decode("utf-8", errors="ignore")
+        print(f"DEBUG: HTTP {resp.status}, page length {len(html)} chars", file=sys.stderr)
     except Exception as e:
         print(f"ERROR fetching page: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Pass 1: scan raw HTML
     result = find_url(html)
     if result:
         print(result); sys.exit(0)
 
-    # Pass 2: parse __NEXT_DATA__ JSON blob (Next.js SSR payload)
     nd = re.search(r'<script[^>]*id=["\']__NEXT_DATA__["\'][^>]*>(.*?)</script>', html, re.DOTALL)
     if nd:
         try:
@@ -99,26 +103,36 @@
         except Exception:
             pass
 
-    # Pass 3: scan every <script> block for a version string
     for block in re.findall(r'<script[^>]*>(.*?)</script>', html, re.DOTALL):
         result = find_url(block)
         if result:
             print(result); sys.exit(0)
 
+    print(f"DEBUG: page snippet: {html[:500]}", file=sys.stderr)
     sys.exit(1)
     PYEOF
-  register: bedrock_download_url
+  register: bedrock_url_fetch
   changed_when: false
   check_mode: no
+  when: minecraft_bedrock_download_url | default('') | length == 0
 
-- name: Fail if download URL not found
+- name: Set download URL from scraped result
+  set_fact:
+    bedrock_resolved_url: "{{ bedrock_url_fetch.stdout }}"
+  when: minecraft_bedrock_download_url | default('') | length == 0
+
+- name: Fail if no download URL could be determined
   fail:
-    msg: "Could not determine latest Minecraft Bedrock download URL. Check connectivity to minecraft.net."
-  when: bedrock_download_url.stdout | length == 0
+    msg: |
+      Could not determine the Minecraft Bedrock download URL automatically.
+      Set 'minecraft_bedrock_download_url' in ansible/inventory/group_vars/all/minecraft.yml:
+        minecraft_bedrock_download_url: "https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-X.X.X.X.zip"
+      Find the latest URL at: https://www.minecraft.net/en-us/download/server/bedrock
+  when: bedrock_resolved_url | default('') | length == 0
 
 - name: Extract version from download URL
   set_fact:
-    bedrock_latest_version: "{{ bedrock_download_url.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+') }}"
+    bedrock_latest_version: "{{ bedrock_resolved_url | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+') }}"
 
 - name: Read currently installed version
   slurp:
@@ -132,7 +146,7 @@
 
 - name: Download Bedrock server zip
   get_url:
-    url: "{{ bedrock_download_url.stdout }}"
+    url: "{{ bedrock_resolved_url }}"
     dest: "{{ minecraft_base_dir }}/tmp/bedrock-server.zip"
     mode: '0644'
   when: bedrock_latest_version != bedrock_installed_version
