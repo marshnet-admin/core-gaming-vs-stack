@@ -187,6 +187,26 @@
     path: "{{ minecraft_base_dir }}/tmp/bedrock-server.zip"
     state: absent
 
+# Bedrock looks for resource_packs/ and behavior_packs/ relative to its
+# working directory. Symlink them from the shared bin/ into each instance.
+- name: Symlink resource_packs into each server instance
+  file:
+    src: "{{ minecraft_base_dir }}/bin/resource_packs"
+    dest: "{{ minecraft_base_dir }}/servers/{{ item.name }}/resource_packs"
+    state: link
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+  loop: "{{ minecraft_servers }}"
+
+- name: Symlink behavior_packs into each server instance
+  file:
+    src: "{{ minecraft_base_dir }}/bin/behavior_packs"
+    dest: "{{ minecraft_base_dir }}/servers/{{ item.name }}/behavior_packs"
+    state: link
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_group }}"
+  loop: "{{ minecraft_servers }}"
+
 - name: Set server.properties for each instance
   template:
     src: server.properties.j2
